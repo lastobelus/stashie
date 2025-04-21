@@ -1,0 +1,40 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# shell artifacts
+shell/.zsh-history
+shell/.zcompdump*
+
+# Elixir build artifacts
+**/_build/
+**/deps/
+**/erl_crash.dump
+**/cover/
+**/.elixir_ls/
+**/doc/
+**/*.beam
+**/*.ez
+**/log/
+**/tmp/
+
+# Swift / Xcode build artifacts
+app/DerivedData/
+app/build/
+app/*.xcodeproj/project.xcworkspace/
+app/*.xcuserdata/
+
+# IDEs/editors
+.idea/
+*.iml
+.vscode/
+
+# Archives and temporary downloads
+*.zip
+*.tar
+*.gz
+
+# stashie working directories and personal overrides
+Downloads/old-artifacts/
+~/.stashie.rc
