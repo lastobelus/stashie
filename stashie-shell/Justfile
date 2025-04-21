@@ -1,0 +1,24 @@
+# Justfile for stashie
+
+set shell := ["bash", "-cu"]
+
+# Run bats tests
+test:
+  bats test
+
+# Watch tests (requires entr)
+watch-test:
+  ./test/watch.sh
+
+# Lint shell scripts
+lint:
+  shellcheck shell/**/*.sh shell/**/*.zsh
+
+# Format shell scripts
+format:
+  shfmt -w shell/**/*.sh shell/**/*.zsh
+
+# Package project into zip
+zip:
+  rm -f stashie-shell.zip
+  zip -r stashie-shell.zip stashie-shell

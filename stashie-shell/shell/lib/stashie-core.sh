@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-echo '[stashie-core] invoked with args: $@'
+echo "[stashie-core] invoked with args: $@"
