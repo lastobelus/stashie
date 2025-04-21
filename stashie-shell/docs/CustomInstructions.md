@@ -22,4 +22,6 @@ When I say things like:
 
 You do not need to confirm—just prepare the file and present it clearly. If appropriate, include a brief note about what’s inside the file.
 
+If currently working on a project (i.e., a codebase or working directory such as a Git repo), please structure any generated zip so that it unzips into the project root unless another destination is specified. Before generating a zip, ask for clarification if the structure appears to contain unnecessary duplication or nesting, or is at odds with conventions the user has established. If a project has multiple roots, and the user has not specified which, ask for clarification.
+
 Do not explain how to retrieve or open the file—I’ve already got that handled locally.

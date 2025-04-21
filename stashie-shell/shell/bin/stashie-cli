@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+source "$(dirname "$0")/../lib/stashie-core.sh"
+echo '[stashie-cli] wrapper executed'
