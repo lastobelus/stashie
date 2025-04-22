@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
 
-source "$(dirname "$0")/../lib/stashie-core.sh"
-echo "[stashie-cli] wrapper executed"
+# shellcheck source-path=SCRIPTDIR
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "${here}/../lib/stashie-core.sh"
+
+# TODO: placeholder logic for initial test setup
+pong=$(hello_world "pong")
+echo "core hello_world: ${pong}"
+echo "cli executed"
