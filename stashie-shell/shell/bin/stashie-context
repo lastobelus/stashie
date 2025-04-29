@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# stashie-context: Generate a zip of relevant files for ChatGPT context
+
+set -euo pipefail
+
+# 1. Load global config first
+global_rc="${HOME}/.config/stashie/stashie.rc"
+# shellcheck disable=SC1090
+[[ -f "${global_rc}" ]] && source "${global_rc}"
+
+# 2. Walk upward from PWD to HOME and load any .stashie.rc along the way
+if [[ "${PWD}" == "${HOME}"* ]]; then
+  current="${PWD}"
+  while [[ "${current}" != "${HOME}" && "${current}" != "/" ]]; do
+    rc_file="${current}/.stashie.rc"
+    if [[ -f "${rc_file}" ]]; then
+      # shellcheck disable=SC1090
+      source "${rc_file}"
+    fi
+    current="$(dirname "${current}")"
+  done
+fi
+
+# Default values if not set
+: "${CONTEXT_DEST_DIR:=${HOME}/Downloads}"
+DATESTAMP="$(date +%H%M 2>/dev/null || echo 0000)"
+: "${CONTEXT_FILENAME:=context-for-chat_${DATESTAMP}.zip}"
+: "${CONTEXT_FOCUS_APP:=Firefox}"
+
+dest="${CONTEXT_DEST_DIR}/${CONTEXT_FILENAME}"
+mkdir -p "${CONTEXT_DEST_DIR}"
+
+# Select file types
+files=$(find stashie-shell/shell -type f \( -name '*.sh' -o -name '*.zsh' -o -name '*.bats' \))
+
+if [[ -z "${files}" ]]; then
+  echo "⚠️ No files found to include in context."
+  exit 1
+fi
+
+zip -r "${dest}" "${files}"
+
+echo "✅ Context saved to ${dest}"
+if command -v open &>/dev/null; then
+  open -a "${CONTEXT_FOCUS_APP}"
+fi
