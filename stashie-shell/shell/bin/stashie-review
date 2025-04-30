@@ -1,0 +1,112 @@
+#!/usr/bin/env bash
+# stashie-review: FZF-based file review interface for stashie workflows
+
+set -euo pipefail
+
+# Check if fzf, bat are installed
+command -v fzf >/dev/null 2>&1 || {
+  echo "Error: fzf is required but not installed" >&2
+  exit 1
+}
+command -v bat >/dev/null 2>&1 || {
+  echo "Error: bat is required but not installed" >&2
+  exit 1
+}
+
+function show_help {
+  echo "Usage: stashie-review [OPTIONS] [FILES...]"
+  echo "  or:  stashie-review [ZIP_FILE]"
+  echo "  or:  cat FILES_LIST | stashie-review"
+  echo ""
+  echo "Options:"
+  echo "  -h, --help    Show this help message and exit"
+  echo ""
+  echo "Interactive file review tool for stashie workflows."
+}
+
+# Parse command line options
+if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help
+  exit 0
+fi
+
+# Determine files to review
+files=()
+
+if [[ $# -eq 1 && "$1" == *.zip ]]; then
+  zip_path="$1"
+  echo "📦 Zip mode: parsing files from ${zip_path}"
+
+  if ! unzip_output=$(unzip -qql "${zip_path}" | awk '{$1=$2=$3=""; sub(/^ +/, ""); print}'); then
+    echo "Error: Failed to list contents of ${zip_path}" >&2
+    exit 1
+  fi
+
+  while IFS= read -r name; do
+    # Skip lines that end in slash (directories)
+    [[ "${name}" =~ ^.*\/$ ]] && continue
+    echo "🔍 Found file:  '${name}'"
+    [[ -n "${name}" ]] && files+=("${name}")
+  done <<<"${unzip_output}"
+else
+  if [[ $# -gt 0 ]]; then
+    files=("$@")
+  else
+    # Run cat in a separate command to avoid masking its exit status
+    if ! input=$(cat); then
+      echo "Error: Failed to read input" >&2
+      exit 1
+    fi
+    # Now use the captured input with mapfile
+    mapfile -t files <<<"${input}"
+  fi
+fi
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "No files to review. Exiting." >&2
+  exit 0
+fi
+
+# Create temp file for reviewed list
+reviewed=$(mktemp)
+trap 'rm -f "$reviewed"' EXIT
+
+# Run interactive review
+selected=$(printf '%s\n' "${files[@]}" | fzf \
+  --multi \
+  --bind "space:toggle" \
+  --bind "e:execute(code {})" \
+  --preview "bat --style=numbers --color=always --line-range=:500 {}" \
+  --header "Press SPACE to mark reviewed, 'e' to edit, ENTER to finish" \
+  --prompt="Review file: ")
+
+# Normalize selection
+selected_files=()
+if [[ -n "${selected}" ]]; then
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && selected_files+=("${line}")
+  done <<<"${selected}"
+fi
+
+# Create markdown report
+project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+md_file="${project_root}/stashie-review.md"
+
+printf "### Files Needing Review\n\n" >"${md_file}"
+
+for file in "${files[@]}"; do
+  [[ -z "${file}" ]] && continue
+  skip=false
+  for sel in "${selected_files[@]}"; do
+    [[ -z "${sel}" ]] && continue
+    if [[ "${file}" == "${sel}" ]]; then
+      skip=true
+      break
+    fi
+  done
+  if [[ "${skip}" == false ]]; then
+    printf -- "- [ ] [%s](%s)\n" "${file}" "${file}" >>"${md_file}"
+  fi
+done
+
+echo "📝 Created ${md_file}"

@@ -9,6 +9,7 @@ Shell utilities for interactive file selection, stashing, and archiving — with
 - **`stashie-core.sh`** — core functions (can be split out further if needed)
 - **`stashie-context`** — utility to bundle context for ChatGPT into a zip
 - **`.stashie.rc`** — user config file for behavior tuning (see below)
+- **`stashie-review`** — interactive review of "stashed" artifacts using `fzf`, with preview and selection
 
 ## 🛠️ Installation
 
