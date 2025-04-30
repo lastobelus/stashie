@@ -35,7 +35,7 @@ declare -a files
 
 if [[ $# -eq 1 && "$1" == *.zip ]]; then
   echo "📦 Zip mode: parsing files from ${1}"
-  get_files_from_zip "${zip_path}" files
+  get_files_from_zip "${1}" files
   status=$?
 
   if [[ "${status}" -ne 0 ]]; then
@@ -81,25 +81,4 @@ if [[ -n "${selected}" ]]; then
   done <<<"${selected}"
 fi
 
-# Create markdown report
-project_root=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-md_file="${project_root}/stashie-review.md"
-
-printf "### Files Needing Review\n\n" >"${md_file}"
-
-for file in "${files[@]}"; do
-  [[ -z "${file}" ]] && continue
-  skip=false
-  for sel in "${selected_files[@]}"; do
-    [[ -z "${sel}" ]] && continue
-    if [[ "${file}" == "${sel}" ]]; then
-      skip=true
-      break
-    fi
-  done
-  if [[ "${skip}" == false ]]; then
-    printf -- "- [ ] [%s](%s)\n" "${file}" "${file}" >>"${md_file}"
-  fi
-done
-
-echo "📝 Created ${md_file}"
+create_review_report files selected_files

@@ -1,6 +1,11 @@
 #!/usr/bin/env bats
 
+############################################################################
+# Tests for get_files_from_zip function
+############################################################################
+
 setup() {
+  echo "setup $(pwd)"
   mkdir -p tmp/testzip/subdir
   echo "hello" >tmp/testzip/file1.md
   echo "world" >tmp/testzip/file2.txt
@@ -14,18 +19,21 @@ teardown() {
 }
 
 @test "get_files_from_zip includes files but excludes empty directories" {
+  zip_path="$(pwd)/tmp/test.zip"
+  echo "$(ls -la tmp)"
   load ../shell/lib/stashie-core-review.sh
-  # Export the function
   export -f get_files_from_zip
 
-  # Run the function in a subshell and capture output
-  run bash -c '
+  run env ZIP_PATH="$zip_path" bash -c '
+    source ./shell/lib/stashie-core-review.sh
     declare -a files
-    get_files_from_zip "tmp/test.zip" files
+    get_files_from_zip "$ZIP_PATH" files
     for file in "${files[@]}"; do
       echo "$file"
     done
   '
+
+  echo "output: $output"
 
   [ "$status" -eq 0 ]
   [[ "${output}" == *file1.md* ]]
