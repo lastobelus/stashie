@@ -1,2 +1,7 @@
 #!/usr/bin/env bash
-echo "[stashie-fzf-preview] previewing: $1"
+set -uo pipefail
+
+# shellcheck source-path=SCRIPTDIR
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "${here}/../lib/stashie-core.sh"
+stashie_preview_file "$@"

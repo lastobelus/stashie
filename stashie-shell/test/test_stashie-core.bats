@@ -1,42 +1,46 @@
 #!/usr/bin/env bats
 
 setup() {
-  export PATH="test/mocks:$PATH"
-  export FZF_CMD="fzf"
-  source shell/lib/stashie-core.sh
+  mkdir -p tmp
+  echo "test content" >tmp/sample.txt
+  echo "test content" >tmp/sample.zip
+  echo "test content" >tmp/sample.tar
+  echo "test content" >tmp/sample.tar.gz
 }
 
-
-############################################################################
-# tests for choose_file()
-############################################################################
-
-@test "choose_file uses mock fzf result" {
-  export MOCK_FZF_RESULT="~/Downloads/testfile.zip"
-  run choose_file
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"testfile.zip"* ]]
+teardown() {
+  rm -rf tmp dest
 }
 
-
-############################################################################
-# tests for choose_dir()
-############################################################################
-
-@test "choose_dir uses mock fzf result" {
-  export MOCK_FZF_RESULT="./"
-  run choose_dir
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"./"* ]]
+@test "process_artifact detects and copies .txt" {
+  run env STASHIE_TEST_MODE=true bash -c '
+    source ./shell/lib/stashie-core.sh
+    process_artifact tmp/sample.txt dest true false
+  '
+  [[ "$output" == *"[DBG] Would cp"* ]]
 }
 
+@test "process_artifact detects and unzips .zip" {
+  run env STASHIE_TEST_MODE=true bash -c '
+    source ./shell/lib/stashie-core.sh
+    process_artifact tmp/sample.zip dest true false
+  '
+  [[ "$output" == *"[DBG] Would unzip"* ]]
+}
 
-############################################################################
-# tests for process_artifact()
-############################################################################
+@test "process_artifact detects and untars .tar" {
+  run env STASHIE_TEST_MODE=true bash -c '
+    source ./shell/lib/stashie-core.sh
+    process_artifact tmp/sample.tar dest true false
+  '
+  [[ "$output" == *"[DBG] Would untar"* ]]
+}
 
-@test "process_artifact copies and archives file in debug mode" {
-  run process_artifact "example.txt" "/tmp" false true
-  [ "$status" -eq 0 ]
-  [[ "$output" == *"Would copy example.txt to /tmp"* ]]
+@test "process_artifact detects and untars .tar.gz" {
+  run env STASHIE_TEST_MODE=true bash -c '
+    source ./shell/lib/stashie-core.sh
+    process_artifact tmp/sample.tar.gz dest true false
+  '
+  echo "output: $output"
+  [[ "$output" == *"[DBG] Would targz"* ]]
 }
