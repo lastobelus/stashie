@@ -20,6 +20,49 @@ resolve_path() {
   fi
 }
 
+# stashie_version_string
+# ----------------------
+# Emits a styled version string based on detected install location.
+# Uses git tags in dev mode, or reads a VERSION file in permanent installs.
+#
+# Args:
+#   $1 = name of script (string)
+#
+stashie_version_string() {
+  local script_name="$1"
+
+  local here
+  here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  local version=""
+  local lang="shell"
+  local dev_marker=""
+  local color="250"
+
+  # Known permanent install path detection script
+  local version_file="${here}/../../VERSION"
+
+  if git -C "${here}" rev-parse &>/dev/null; then
+    # in a git repo, check for recent tag
+    version="$(git -C "${here}" describe --tags --abbrev=0 2>/dev/null || echo "0.0.0")"
+    dev_marker="-dev"
+  elif [[ -f "${version_file}" ]]; then
+    read -r version <"${version_file}"
+  else
+    version="0.0.0"
+    dev_marker="-dev"
+  fi
+
+  case "${lang}" in
+  shell) color="178" ;;
+  js) color="34" ;;
+  swift) color="208" ;;
+  rust) color="160" ;;
+  *) color="250" ;;
+  esac
+
+  echo -e "\\033[4m${script_name}   \\033[1m${version}${dev_marker}\\033[0m\\033[4m   \\033[38;5;${color}m${lang}\\033[0m"
+}
+
 # fzf_pick_file
 # -------------
 # Lets user select a file using fzf from a specified directory.
@@ -37,7 +80,7 @@ fzf_pick_file() {
     return 1
   }
 
-local file_list
+  local file_list
 
   if find . -maxdepth 0 -printf '' &>/dev/null; then
     # GNU find
@@ -50,11 +93,10 @@ local file_list
       sort -rn | cut -d' ' -f2- | tr '\n' '\0')
   fi
 
-  printf "%s" "${file_list}" | \
+  printf "%s" "${file_list}" |
     fzf --read0 \
-    --preview="${preview_script} {}" \
-    --prompt="Select artifact to retrieve: "
-
+      --preview="${preview_script} {}" \
+      --prompt="Select artifact to retrieve: "
 
 }
 

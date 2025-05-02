@@ -3,6 +3,11 @@
 
 set -uo pipefail
 
+# shellcheck source-path=SCRIPTDIR
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "${here}/../lib/stashie-core-review.sh"
+stashie_version_string "stashie-review"
+
 # Check if fzf, bat are installed
 command -v fzf >/dev/null 2>&1 || {
   echo "Error: fzf is required but not installed" >&2
@@ -25,10 +30,6 @@ if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
   show_help
   exit 0
 fi
-
-# shellcheck source-path=SCRIPTDIR
-here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
-source "${here}/../lib/stashie-core-review.sh"
 
 # Determine files to review
 declare -a files

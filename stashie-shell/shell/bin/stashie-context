@@ -2,6 +2,9 @@
 # stashie-context: Generate a zip of relevant files for ChatGPT context
 
 set -euo pipefail
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "${here}/../lib/stashie-core.sh"
+stashie_version_string "stashie-context"
 
 # 1. Load global config first
 global_rc="${HOME}/.config/stashie/stashie.rc"

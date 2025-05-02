@@ -13,10 +13,9 @@ show_help() {
   echo "  --help         Show this help message"
 }
 
-# shellcheck source-path=SCRIPTDIR
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 source "${here}/../lib/stashie-core.sh"
-
+stashie_version_string "stashie-cli"
 
 # Parse command line arguments
 # Comment: Changed from function parameters to script arguments

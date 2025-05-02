@@ -7,6 +7,10 @@ set -uo pipefail
 # using the project name and the most recent reachable tag. The output is saved
 # to the parent of the project root.
 
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+source "${here}/../lib/stashie-core.sh"
+stashie_version_string "stashie-snap"
+
 repo_root=$(git rev-parse --show-toplevel)
 project_name=$(basename "${repo_root}")
 tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "untagged")
