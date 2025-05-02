@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+echo "1"
+
 # Standalone bash script converted from original get-artifact zsh function prototype
 
 # Function to display help information
@@ -16,6 +18,7 @@ show_help() {
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 source "${here}/../lib/stashie-core.sh"
 stashie_version_string "stashie-cli"
+echo "2"
 
 # Parse command line arguments
 # Comment: Changed from function parameters to script arguments
@@ -45,18 +48,33 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+echo "3"
+
 # File picker
 # Comment: Using a simpler preview command as the original likely used a custom function
-artifact_file=$(fzf_pick_file "${query}") || return 1
+artifact_file=$(fzf_pick_file "${query}")
+status=$?
 
-[[ -z "${artifact_file}" ]] && {
+if [[ ${status} -eq 130 ]]; then
+  echo "Canceled by user." >&2
+  exit 130
+elif [[ ${status} -ne 0 || -z "${artifact_file}" ]]; then
   echo "No file selected." >&2
-  return 1
-}
+  exit 1
+fi
 
 # Destination folder selection
 echo "Select destination directory..." >&2
-dest=$(fzf_pick_dir)
-[[ -z "${dest}" ]] && dest="."
+dest=$(fzf_pick_dir "${artifact_file}")
+status=$?
+if [[ ${status} -eq 130 ]]; then
+  echo "Canceled by user." >&2
+  exit 130
+elif [[ ${status} -ne 0 ]]; then
+  echo "No destination selected." >&2
+  exit 1
+elif [[ -z "${dest}" ]]; then
+  dest="."
+fi
 
 process_artifact "${artifact_file}" "${dest}" "${DEBUG}" "${DELETE_AFTER}"

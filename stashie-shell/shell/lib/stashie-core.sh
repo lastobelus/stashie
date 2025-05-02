@@ -1,6 +1,43 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
+# -----------------------------------------------------------------------------
+# 🧾 stashie configuration loader
+#
+# Loads user and project-specific configuration for stashie.
+#
+# 1. Global Config:
+#    - Loads from: $HOME/.config/stashie/stashie.rc
+#    - Used for persistent, system-wide preferences (e.g., preview style, colors)
+#
+# 2. Project-Scoped Overrides:
+#    - Walks upward from $PWD toward $HOME
+#    - Sources any `.stashie.rc` found along the way
+#    - Allows context-specific overrides per project or subproject
+#
+# Notes:
+# - ShellCheck SC1090 is disabled intentionally for sourced config files
+# - Config variables include STASHIE_ARTIFACTS_SOURCE_DIR, STASHIE_SORT_MODE, etc.
+# -----------------------------------------------------------------------------
+
+# 1. Load global config first
+global_rc="${HOME}/.config/stashie/stashie.rc"
+# shellcheck disable=SC1090
+[[ -f "${global_rc}" ]] && source "${global_rc}"
+
+# 2. Walk upward from PWD to HOME and load any .stashie.rc along the way
+if [[ "${PWD}" == "${HOME}"* ]]; then
+  current="${PWD}"
+  while [[ "${current}" != "${HOME}" && "${current}" != "/" ]]; do
+    rc_file="${current}/.stashie.rc"
+    if [[ -f "${rc_file}" ]]; then
+      # shellcheck disable=SC1090
+      source "${rc_file}"
+    fi
+    current="$(dirname "${current}")"
+  done
+fi
+
 # resolve_path
 # ------------
 # Tries to resolve a given path to an absolute path.
@@ -65,98 +102,143 @@ stashie_version_string() {
 
 # fzf_pick_file
 # -------------
-# Lets user select a file using fzf from a specified directory.
-# Uses stashie's preview shim for consistent display behavior.
+# Interactive file picker using fzf with fast, recent-first directory drilldown.
+#
+# Reads from:
+#   - STASHIE_ARTIFACTS_SOURCE_DIR     → root directory to browse (default: $HOME/Downloads)
+#   - STASHIE_PICK_FILE_LIST_COMMAND   → listing command per directory (default: "ls -1t")
+#   - STASHIE_PICK_FILE_RECURSIVE      → if set to "1", allows recursive drilldown (default: "1")
+#
+# Behavior:
+#   - Presents a sorted list of files and folders in the current directory
+#   - Allows descending into subdirectories (unless recursion disabled)
+#   - Includes a ".." entry for going back up
+#   - Uses stashie-fzf-preview for live preview of each entry
+#   - Cleanly handles Ctrl-C and empty selection
+#
+# Returns:
+#   - Echoes the selected file path to stdout
+#   - Exits with:
+#       0 → file selected
+#       1 → no selection
+#     130 → user pressed Ctrl-C
 
 fzf_pick_file() {
   local source_dir="${STASHIE_ARTIFACTS_SOURCE_DIR:-${HOME}/Downloads}"
-  source_dir=$(resolve_path "${source_dir}")
+  local list_cmd="${STASHIE_PICK_FILE_LIST_COMMAND:-ls -1t}"
+  local recursive="${STASHIE_PICK_FILE_RECURSIVE:-1}"
   local here
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
   local preview_script="${here}/../bin/stashie-fzf-preview"
 
+  source_dir=$(resolve_path "${source_dir}")
   [[ -d "${source_dir}" ]] || {
-    echo "Error: Stashie artifact directory '${source_dir}' not found" >&2
+    echo "Error: Source directory '${source_dir}' not found." >&2
     return 1
   }
 
-  local file_list
+  local current_dir="${source_dir}"
+  local selected
 
-  if find . -maxdepth 0 -printf '' &>/dev/null; then
-    # GNU find
-    file_list=$(find "${source_dir}" -type f -printf '%T@ %p\\0' 2>/dev/null |
-      sort -zrn | cut -z -d' ' -f2-)
-  else
-    # BSD/macOS fallback
-    file_list=$(find "${source_dir}" -type f -print0 2>/dev/null |
-      xargs -0 stat -f '%m %N' 2>/dev/null |
-      sort -rn | cut -d' ' -f2- | tr '\n' '\0')
-  fi
+  while true; do
+    local list_output
+    if ! list_output=$(eval "${list_cmd} \"${current_dir}\"" 2>/dev/null); then
+      echo "Error: Failed to list files in ${current_dir}" >&2
+      return 1
+    fi
 
-  printf "%s" "${file_list}" |
-    fzf --read0 \
-      --preview="${preview_script} {}" \
-      --prompt="Select artifact to retrieve: "
+    local entries=()
 
+    # Add synthetic ".." entry if not at root
+    if [[ "${current_dir}" != "${source_dir}" ]]; then
+      entries+=("..")
+    fi
+
+    # Populate entries array safely
+    while IFS= read -r entry; do
+      entries+=("${entry}")
+    done <<<"${list_output}"
+
+    # Run fzf
+    selected=$(printf "%s\n" "${entries[@]}" |
+      fzf --ansi --preview="${preview_script} ${current_dir}/{}" \
+        --prompt="Pick file in: ${current_dir} → ")
+
+    if [[ $? -eq 130 ]]; then
+      return 130
+    elif [[ -z "${selected}" ]]; then
+      return 1
+    fi
+
+    local full_path="${current_dir}/${selected}"
+
+    if [[ "${selected}" == ".." ]]; then
+      current_dir=$(dirname "${current_dir}")
+    elif [[ -d "${full_path}" ]]; then
+      if [[ "${recursive}" = "1" ]]; then
+        current_dir="${full_path}"
+      else
+        echo "${full_path}"
+        return
+      fi
+    else
+      echo "${full_path}"
+      return
+    fi
+  done
 }
 
 # fzf_pick_dir
 # ------------
-# Launches fzf for fuzzy directory selection with layered config support.
+# Interactive directory picker using fzf, with preview and artifact-aware help.
 #
 # Reads from:
-#   - STASHIE_PICK_DIR_COMMAND   → overrides what to list (default: "find . -type d")
-#   - STASHIE_PICK_DIR_OPTS      → overrides all fzf UI options
-#   - FZF_ALT_C_COMMAND           → standard fzf shell fallback
-#   - FZF_ALT_C_OPTS              → standard fzf shell fallback options
-#   - STASHIE_FZF_DEFAULTS       → appended to fzf options (or falls back to __fzf_defaults if defined)
-#   - STASHIE_FZF_CMD            → alternate runner for fzf (e.g. fzf-tmux)
+#   - STASHIE_PICK_DIR_COMMAND         → directory listing command (default: "find . -type d")
+#   - STASHIE_PICK_DIR_OPTS            → fzf layout and UI options (default: reverse walker + path scheme)
+#   - STASHIE_FZF_DEFAULTS             → overrides all fzf options if set
+#   - STASHIE_PICK_DIR_PREVIEW_CMD     → preview command (default: "tree -C {}")
 #
 # Behavior:
-#   - Uses `__fzf_defaults` and `__fzfcmd` if available
-#   - Defaults to single-selection, path scheme, and reverse layout
-#   - Uses FZF_DEFAULT_OPTS and FZF_DEFAULT_COMMAND
+#   - Displays artifact filename in header
+#   - Binds <Ctrl-P> to preview the selected artifact (via stashie-fzf-preview)
+#   - Includes prompt to cancel with Ctrl-C
+#   - Exits with:
+#       0 → directory selected
+#       1 → no selection
+#     130 → user pressed Ctrl-C
 #
 # Returns:
-#   - Prints selected directory to stdout
-#   - Returns 1 on user cancel or directory not found
+#   - Echoes selected directory to stdout
 fzf_pick_dir() {
-  local fzf_cmd
-  local fzf_opts
-  local default_command
+  local artifact_file="$1"
+  local default_command="${STASHIE_PICK_DIR_COMMAND:-find . -type d}"
+  local preview_cmd="${STASHIE_PICK_DIR_PREVIEW_CMD:-tree -C {}}"
+  local base_opts="--reverse --walker=dir,follow,hidden --scheme=path +m"
+  local pick_dir_opts="${STASHIE_PICK_DIR_OPTS:-${base_opts}}"
+  local fzf_opts="${STASHIE_FZF_DEFAULTS:-} ${pick_dir_opts}"
 
-  # 1. Baseline command and options
-  default_command="${STASHIE_PICK_DIR_COMMAND:-${FZF_ALT_C_COMMAND:-find . -type d}}"
-  base_opts="--reverse --walker=dir,follow,hidden --scheme=path +m"
+  local fzf_cmd="fzf"
 
-  # 2. Let FZF_ALT_C_OPTS extend stashie's base
-  combined_opts="${base_opts} ${FZF_ALT_C_OPTS:-}"
+  local selected_dir
+  selected_dir=$(
+    FZF_DEFAULT_COMMAND="${default_command}" \
+      FZF_DEFAULT_OPTS="${fzf_opts}" \
+      FZF_DEFAULT_OPTS_FILE='' \
+      ${fzf_cmd} \
+      --prompt="Select destination → " \
+      --preview="${preview_cmd}" \
+      --header="📄 Selected file: $(basename "${artifact_file}")"$'\n'"Press Ctrl-P to preview it | Ctrl-C to cancel" \
+      --bind "ctrl-p:execute((stashie-fzf-preview '${artifact_file}'; echo; echo '[press q to return]') | less -R)+refresh-preview" \
+      </dev/tty
+  )
 
-  # 3. Final stashie-specific override wins
-  pick_dir_opts="${STASHIE_PICK_DIR_OPTS:-${combined_opts}}"
-
-  # 4. FZF_DEFAULT_OPTS: stashie wins, then fallback to __fzf_defaults if present
-  if [[ -n "${STASHIE_FZF_DEFAULTS:-}" ]]; then
-    fzf_opts="${STASHIE_FZF_DEFAULTS} ${pick_dir_opts}"
-  elif declare -F __fzf_defaults &>/dev/null; then
-    fzf_opts="$(__fzf_defaults ${pick_dir_opts})"
+  if [[ $? -eq 130 ]]; then
+    return 130
+  elif [[ -z "${selected_dir}" ]]; then
+    return 1
   else
-    fzf_opts="${pick_dir_opts}"
+    echo "${selected_dir}"
   fi
-
-  # 5. Use fzf-tmux if present, else plain fzf
-  if [[ -n "${STASHIE_FZF_CMD:-}" ]]; then
-    fzf_cmd="${STASHIE_FZF_CMD}"
-  elif declare -F __fzfcmd &>/dev/null; then
-    fzf_cmd="$(__fzfcmd)"
-  else
-    fzf_cmd="fzf"
-  fi
-
-  FZF_DEFAULT_COMMAND="${default_command}" \
-    FZF_DEFAULT_OPTS="${fzf_opts}" \
-    FZF_DEFAULT_OPTS_FILE='' \
-    ${fzf_cmd} </dev/tty
 }
 
 # require_file_selection
@@ -181,22 +263,67 @@ require_file_selection() {
 
 # stashie_preview_file
 # --------------------
-# Previews a file in fzf based on readability and bat availability.
-# This is the underlying logic for stashie-fzf-preview.
+# Previews a file or directory in a color-friendly, terminal-safe way.
+#
+# Behavior:
+#   - For directories:
+#       - Uses `eza --tree -L 1` if available
+#       - Falls back to `tree -L 1 -C`, or plain `ls -1`
+#   - For readable files:
+#       - Uses `bat --style=plain --color=always` if available
+#       - Falls back to `cat`
+#   - For archives:
+#       - .zip     → uses `unzip -l`
+#       - .tar*    → uses `tar -tf`
+#   - For non-readable files:
+#       - Displays a clear "Cannot preview file" message
+#
+# Notes:
+#   - Intended for use with `fzf --preview`, but safe in standalone CLI
+#   - Will not attempt image previews or special formatting beyond ANSI color
 
 stashie_preview_file() {
   local file="$1"
 
-  if [[ -r "${file}" ]]; then
+  if [[ -d "${file}" ]]; then
+    if command -v eza &>/dev/null; then
+      eza --color=always --tree -L 1 "${file}"
+    elif command -v tree &>/dev/null; then
+      tree -L 1 -C "${file}"
+    else
+      echo "📁 Directory: ${file}"
+      ls -1 "${file}"
+    fi
+    return
+  fi
+
+  if [[ ! -r "${file}" ]]; then
+    echo "Cannot preview file: '${file}'"
+    return 1
+  fi
+
+  case "${file}" in
+  *.zip)
+    unzip -l "${file}"
+    ;;
+  *.tar | *.tar.gz | *.tgz)
+    tar -tf "${file}"
+    ;;
+  *.jpg | *.jpeg | *.png | *.gif | *.bmp | *.webp)
+    if [[ -t 1 ]] && command -v imgcat &>/dev/null; then
+      imgcat "${file}"
+    else
+      echo "🖼️ Image preview (imgcat) not available for '${file}'"
+    fi
+    ;;
+  *)
     if command -v bat &>/dev/null; then
       bat --style=plain --color=always "${file}"
     else
       cat "${file}"
     fi
-  else
-    echo "Cannot preview file: '${file}'"
-    return 1
-  fi
+    ;;
+  esac
 }
 
 # process_artifact

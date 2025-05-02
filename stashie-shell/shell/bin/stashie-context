@@ -6,24 +6,6 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 source "${here}/../lib/stashie-core.sh"
 stashie_version_string "stashie-context"
 
-# 1. Load global config first
-global_rc="${HOME}/.config/stashie/stashie.rc"
-# shellcheck disable=SC1090
-[[ -f "${global_rc}" ]] && source "${global_rc}"
-
-# 2. Walk upward from PWD to HOME and load any .stashie.rc along the way
-if [[ "${PWD}" == "${HOME}"* ]]; then
-  current="${PWD}"
-  while [[ "${current}" != "${HOME}" && "${current}" != "/" ]]; do
-    rc_file="${current}/.stashie.rc"
-    if [[ -f "${rc_file}" ]]; then
-      # shellcheck disable=SC1090
-      source "${rc_file}"
-    fi
-    current="$(dirname "${current}")"
-  done
-fi
-
 # Default values if not set
 : "${CONTEXT_DEST_DIR:=${HOME}/Downloads}"
 DATESTAMP="$(date +%H%M 2>/dev/null || echo 0000)"
