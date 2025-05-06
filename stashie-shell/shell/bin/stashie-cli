@@ -1,8 +1,6 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-echo "1"
-
 # Standalone bash script converted from original get-artifact zsh function prototype
 
 # Function to display help information
@@ -16,9 +14,9 @@ show_help() {
 }
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
 source "${here}/../lib/stashie-core.sh"
 stashie_version_string "stashie-cli"
-echo "2"
 
 # Parse command line arguments
 # Comment: Changed from function parameters to script arguments
@@ -47,8 +45,6 @@ while [[ $# -gt 0 ]]; do
     ;;
   esac
 done
-
-echo "3"
 
 # File picker
 # Comment: Using a simpler preview command as the original likely used a custom function

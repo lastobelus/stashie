@@ -12,11 +12,11 @@ watch-test:
 
 # Lint shell scripts
 lint:
-  shellcheck shell/**/*.sh shell/**/*.zsh
+  shellcheck shell/**/* shell/**/*.sh
 
 # Format shell scripts
 format:
-  shfmt -w shell/**/*.sh shell/**/*.zsh
+  shfmt -w shell/**/* shell/**/*.sh
 
 # Package project into zip
 zip:

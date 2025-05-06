@@ -350,7 +350,7 @@ process_artifact() {
 
   mkdir -p "${dest}"
 
-  local extension cmd
+  local cmd
   cmd="cp" # fallback
 
   # Detect the correct command based on extension

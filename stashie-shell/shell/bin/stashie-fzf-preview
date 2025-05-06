@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-# shellcheck source-path=SCRIPTDIR
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
 source "${here}/../lib/stashie-core.sh"
 stashie_preview_file "$@"
