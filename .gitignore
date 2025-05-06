@@ -7,15 +7,7 @@
 shell/.zsh-history
 shell/.zcompdump*
 
-# Elixir build artifacts
-**/_build/
-**/deps/
-**/erl_crash.dump
-**/cover/
-**/.elixir_ls/
-**/doc/
-**/*.beam
-**/*.ez
+# build artifacts
 **/log/
 **/tmp/
 
@@ -36,6 +28,7 @@ app/*.xcuserdata/
 *.gz
 
 # stashie working directories and personal overrides
-Downloads/old-artifacts/
-~/.stashie.rc
+**/Downloads
+**/old-artifacts/
+**/.stashie.rc
 **/stashie-review.md

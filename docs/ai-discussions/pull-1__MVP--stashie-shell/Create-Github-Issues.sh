@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # 0. Create milestone ----------------------------------------------------------
-gh milestone create "v0.3.0‑portable" \
+gh milestone create --title "v0.3.0‑portable" \
   --description "Hardening cycle: portability + CI + tests to prepare shell MVP for multi-language ports: JS, Swift, Rust"
 
 # 1. Remove legacy Elixir scaffolding ------------------------------------------
