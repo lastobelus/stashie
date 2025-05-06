@@ -6,7 +6,7 @@ setup() {
   mkdir -p tmp src dest
   echo "hello world" >src/hello.txt
 
-  fzf_pick_file() {
+  fzf_pick_artifact() {
     echo "$(pwd)/src/hello.txt"
     return 0
   }
@@ -16,7 +16,7 @@ setup() {
     return 0
   }
 
-  export -f fzf_pick_file
+  export -f fzf_pick_artifact
   export -f fzf_pick_dir
 }
 
@@ -25,7 +25,7 @@ teardown() {
 }
 
 @test "stashie-cli copies selected file to selected destination" {
-  file=$(fzf_pick_file)
+  file=$(fzf_pick_artifact)
   require_file_selection file true
   dest=$(fzf_pick_dir)
   require_file_selection dest true

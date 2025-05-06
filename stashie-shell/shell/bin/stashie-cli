@@ -48,7 +48,7 @@ done
 
 # File picker
 # Comment: Using a simpler preview command as the original likely used a custom function
-artifact_file=$(fzf_pick_file "${query}")
+artifact_file=$(fzf_pick_artifact "${query}")
 status=$?
 
 if [[ ${status} -eq 130 ]]; then

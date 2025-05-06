@@ -3,6 +3,7 @@
 set shell := ["bash", "-cu"]
 
 check-deps:
+  #!/usr/bin/env sh
   if ! command -v fzf >/dev/null; then
     echo "Missing dependency: fzf" >&2
     exit 1
@@ -16,8 +17,9 @@ check-deps:
     exit 1
   fi
 
+
 # Run bats tests
-test:
+tests:
   cd stashie-shell && bats test
 
 test-verbose:

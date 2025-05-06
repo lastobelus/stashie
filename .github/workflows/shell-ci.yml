@@ -48,12 +48,11 @@ jobs:
             echo "just already installed"
           fi
       
-      - name: ShellCheck
+      - name: ShellCheck & Just syntax Check
         run: |
           cd stashie-shell
           shellcheck $(find shell -name '*.sh')
+          just --unstable syntax-check 
 
-      - name: Run Bats tests
-        run: |
-          cd stashie-shell
-          bats test/
+      - name: Run tests via Just
+        run: just test

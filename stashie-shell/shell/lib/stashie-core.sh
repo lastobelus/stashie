@@ -87,7 +87,7 @@ stashie_version_string() {
   else
     version="0.0.0"
     dev_marker="-dev"
-  fi
+  fi 
 
   case "${lang}" in
   shell) color="178" ;;
@@ -100,7 +100,82 @@ stashie_version_string() {
   echo -e "\\033[4m${script_name}   \\033[1m${version}${dev_marker}\\033[0m\\033[4m   \\033[38;5;${color}m${lang}\\033[0m"
 }
 
-# fzf_pick_file
+# raise_with_help
+# ----------------
+# Prints a formatted error message and exits the script.
+#
+# Arguments:
+#   $1 → short title (e.g. "Missing dependencies")
+#   $2 → multi-line message string (typically from a heredoc or printf)
+#
+# Behavior:
+#   - Formats with a ❌ prefix
+#   - Prints to stderr
+#   - Exits with status 1, or optionally a custom code
+#
+# Example:
+#   raise_with_help "Invalid usage" "Use --help to see available options."
+raise_with_help() {
+  local title="$1"
+  local message="$2"
+  local code="${3:-1}"
+
+  echo -e "\n❌ ${title}\n"
+  echo -e "${message}" >&2
+  exit "${code}"
+}
+
+# check_dependencies
+# ------------------
+# Verifies required tools are installed and bash version is sufficient.
+#
+# Always checks:
+#   - Bash version ≥ 4.3
+#   - GNU getopt (via `getopt --test`)
+#
+# Also checks any tools passed as arguments, such as:
+#   check_dependencies fzf bats just
+#
+# Behavior:
+#   - Accumulates all missing requirements
+#   - Displays a helpful message and exits if any are missing
+#   - Suggests a `brew install ...` command tailored to the missing tools
+#
+# Returns:
+#   - Exits with status 1 if any dependency is missing
+#   - Exits with status 0 if all checks pass
+check_dependencies() {
+  local missing=()
+  local brew_missing=()
+
+  # Bash version
+  if ((BASH_VERSINFO[0] < 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] < 3))); then
+    missing+=("bash >= 4.3")
+    brew_missing+=("bash")
+  fi
+
+  # GNU getopt
+  if ! getopt --test >/dev/null 2>&1; then
+    missing+=("gnu-getopt")
+    brew_missing+=("gnu-getopt")
+  fi
+
+  # Other tools
+  for dep in "$@"; do
+    if ! command -v "${dep}" >/dev/null 2>&1; then
+      missing+=("${dep}")
+      brew_missing+=("${dep}")
+    fi
+  done
+
+  if ((${#missing[@]} > 0)); then
+    raise_with_help "Missing dependencies" "$(printf 'You are missing required tools:\n\n%s\n\nOn macOS, try:\n  brew install %s\n' \
+      "$(printf -- '- %s\n' "${missing[@]}")" \
+      "${brew_missing[*]}")"
+  fi
+}
+
+# fzf_pick_artifact
 # -------------
 # Interactive file picker using fzf with fast, recent-first directory drilldown.
 #
@@ -123,7 +198,7 @@ stashie_version_string() {
 #       1 → no selection
 #     130 → user pressed Ctrl-C
 
-fzf_pick_file() {
+fzf_pick_artifact() {
   local source_dir="${STASHIE_ARTIFACTS_SOURCE_DIR:-${HOME}/Downloads}"
   local list_cmd="${STASHIE_PICK_FILE_LIST_COMMAND:-ls -1t}"
   local recursive="${STASHIE_PICK_FILE_RECURSIVE:-1}"
@@ -398,7 +473,7 @@ process_artifact() {
 }
 
 if [[ "${STASHIE_TEST_MODE:-false}" == true ]]; then
-  export -f fzf_pick_file
+  export -f fzf_pick_artifact
   export -f fzf_pick_dir
   export -f require_file_selection
   export -f stashie_preview_file

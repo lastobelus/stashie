@@ -11,7 +11,7 @@ All major file selection, preview, processing, and configuration behaviors are n
 
 ### Added
 - Real `stashie-cli` implementation for artifact selection and delivery
-- `fzf_pick_file` and `fzf_pick_dir` helpers with override-friendly configuration
+- `fzf_pick_artifact` and `fzf_pick_dir` helpers with override-friendly configuration
 - Core preview logic as a testable function + standalone script (`stashie-fzf-preview`)
 - `process_artifact` with filetype detection (zip, tar, tar.gz) and archival logic
 - `require_file_selection` and `resolve_path` helpers
