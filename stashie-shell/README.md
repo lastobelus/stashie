@@ -1,96 +1,83 @@
 # stashie-shell
 
-Shell utilities for interactive file selection, stashing, and archiving — with a focus on flow, clarity, and ChatGPT-assisted development.
+This is the MVP implementation of Stashie — a shell-based toolkit for flow-friendly interaction with AI-generated files.
 
-## 🧩 Components
+Its goal is to validate the UX and component boundaries before reimplementing in:
+- 🟢 JavaScript (Bun)
+- 🟠 Swift CLI
+- 🔴 Rust
 
-- **`stashie-func`** — a zsh function sourcing `stashie-core.sh` for in-shell interactivity
-- **`stashie-cli`** — standalone shell script version that works in all POSIX shells
-- **`stashie-core.sh`** — core functions (can be split out further if needed)
-- **`stashie-context`** — utility to bundle context for ChatGPT into a zip
-- **`.stashie.rc`** — user config file for behavior tuning (see below)
-- **`stashie-review`** — interactive review of "stashed" artifacts using `fzf`, with preview and selection
-
-## 🛠️ Installation
-
-### Option A: Use as a ZSH Function
-
-Add to your `.zshrc`:
-
-```sh
-source /path/to/stashie-shell/stashie-func
-alias stashie=stashie
-```
-
-This lets you use all functions inline in your shell session with persistent variables.
-
-### Option B: Use as a CLI Tool
-
-Copy `stashie-cli` somewhere in your `$PATH`, e.g.:
-
-```sh
-cp stashie-shell/stashie-cli /usr/local/bin/stashie
-chmod +x /usr/local/bin/stashie
-```
-
-This version runs as a standalone command, suitable for cron jobs, scripts, or general portability.
+Eventually, one implementation may become canonical, but the shell MVP is stable and useful today.
 
 ---
 
-## 🧠 Function vs Script (Sidebar)
+## 🧱 Requirements
 
-### Use the **zsh function (`stashie-func`)** if you want:
-- Instant feedback and variable sharing (no subshell)
-- Easier composition with other in-shell tools
-- Interactive workflows where state matters
+### To Use
+- Bash 4.3+ (for associative arrays and `local -n`)
+- `fzf` — interactive file picker
+- gnu `getopts` (or `util-linux` ) — for parsing command-line arguments
+- Recommended on macOS:
+  ```sh
+  brew install bash gnu-getopt fzf
+  ```
 
-### Use the **CLI (`stashie-cli`)** if you:
-- Prefer traditional scripts
-- Want portability across shells
-- Need something cronable or automation-friendly
-
-Alias whichever you prefer as `stashie`.
-
----
-
-## 🔧 Config: `.stashie.rc`
-
-You can customize behavior by creating a `.stashie.rc` file in your home directory.
-
-### Common Fields:
-- `CONTEXT_FILENAME` — output path for `stashie-context` zips
-- `CHATAPP` — which app to focus after switching back to ChatGPT (e.g., `Firefox`)
-
-See `.stashie.rc.example` for structure and examples.
+### To Develop
+- `just` — task runner
+- `bats-core` — testing framework
+- `shellcheck` — linting
+- `shfmt` — formatting
+- Recommended on macOS:
+  ```sh
+  brew install bash fzf just bats-core shellcheck shfmt
+  ```
 
 ---
 
-## 🔍 fzf Required
+## 🧠 What is a "stash"?
 
-The stashie-shell tools require [fzf](https://github.com/junegunn/fzf) for interactive file selection.
+A stash is a zip file containing one or more project files you want to send to ChatGPT for review or modification.
 
-Install it via:
-```sh
-brew install fzf
-```
+The stash includes enough context for the assistant to understand file layout, relationships, and intent. It's often used to:
+- Share implementation code with accompanying helper modules
+- Group a main script with its test suite
+- Capture the state of a partial refactor for validation
+
+The stash typically mirrors your local project layout and is created interactively.
+
+## 💡 What is a "context zip"?
+
+A context zip is a curated archive of relevant files meant to rehydrate context for ChatGPT. Unlike a normal stash, it's more complete and less targeted — for example, it might include:
+- A README
+- A config file
+- A primary script and its support libraries
+- Possibly a previously received artifact for comparison
+
+It's typically produced with `stashie-context`, and zipped for upload back to ChatGPT.
+
+## 🧾 What does it mean to "review a stash"?
+
+This step helps avoid unintended side effects before uploading a stash zip. It allows you to:
+- Inspect what files were included
+- Confirm paths and root structure look correct
+- Flag surprises like refactors that removed functionality
+- Sanity-check for files you didn’t mean to overwrite
+
+You can run this via `stashie-review`.
 
 ---
 
-## 🚀 Quickstart
+## 🚀 Usage Overview
 
 ```sh
 # Pick and stash a file
-stashie
+stashie-cli
 
 # Generate a context zip for ChatGPT
 stashie-context
+
+# Review stash for structure or surprises
+stashie-review
 ```
 
----
-
-## ✅ Status
-
-This project is actively evolving. The shell layer (`stashie-shell`) is stable enough for daily use and open to contributions.
-
-More info and architectural philosophy:
-👉 `docs/stashie-onion-layers.md`
+See `.stashie.rc.example` for config options. Each tool supports `--help`.
