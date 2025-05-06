@@ -5,6 +5,7 @@ set -uo pipefail
 
 here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
 # shellcheck source-path=SCRIPTDIR
+source "${here}/../lib/stashie-core.sh"
 source "${here}/../lib/stashie-core-review.sh"
 stashie_version_string "stashie-review"
 
@@ -30,6 +31,8 @@ if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
   show_help
   exit 0
 fi
+
+echo "passed usage"
 
 # Determine files to review
 declare -a files

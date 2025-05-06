@@ -10,8 +10,7 @@ teardown() {
 }
 
 @test "stashie-fzf-preview responds to file input" {
-  echo "hello" >tmp/test.txt
-  run shell/bin/stashie-fzf-preview test.txt
+  run shell/bin/stashie-fzf-preview tmp/test.txt
   [ "$status" -eq 0 ]
-  [[ "$output" == *"hello"* ]]
+  [[ "$output" == *"test content"* ]]
 }
