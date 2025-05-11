@@ -45,4 +45,4 @@ jobs:
           just
 
       - name: Run tests via Just
-        run: just test
+        run: just tests
