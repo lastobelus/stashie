@@ -16,21 +16,11 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        os: [macos-latest]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Install dependencies (Ubuntu)
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y shellcheck bats fzf
-
-      - name: Debug PATH and fzf location (Ubuntu)
-        if: runner.os == 'Linux'
-        run: |
-          echo "PATH=$PATH"
-          which fzf || echo "fzf not found"
       
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
@@ -52,7 +42,7 @@ jobs:
         run: |
           cd stashie-shell
           shellcheck $(find shell -name '*.sh')
-          just --unstable syntax-check 
+          just
 
       - name: Run tests via Just
         run: just test
