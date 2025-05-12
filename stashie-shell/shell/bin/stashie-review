@@ -1,0 +1,88 @@
+#!/usr/bin/env bash
+# stashie-review: FZF-based file review interface for stashie workflows
+
+set -uo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
+source "${here}/../lib/stashie-core.sh"
+source "${here}/../lib/stashie-core-review.sh"
+stashie_version_string "stashie-review"
+
+# Check if fzf, bat are installed
+command -v fzf >/dev/null 2>&1 || {
+  echo "Error: fzf is required but not installed" >&2
+  exit 1
+}
+
+function show_help {
+  echo "Usage: stashie-review [OPTIONS] [FILES...]"
+  echo "  or:  stashie-review [ZIP_FILE]"
+  echo "  or:  cat FILES_LIST | stashie-review"
+  echo ""
+  echo "Options:"
+  echo "  -h, --help    Show this help message and exit"
+  echo ""
+  echo "Interactive file review tool for stashie workflows."
+}
+
+# Parse command line options
+if [[ $# -eq 0 || "$1" == "-h" || "$1" == "--help" ]]; then
+  show_help
+  exit 0
+fi
+
+echo "passed usage"
+
+# Determine files to review
+declare -a files
+
+if [[ $# -eq 1 && "$1" == *.zip ]]; then
+  echo "📦 Zip mode: parsing files from ${1}"
+  get_files_from_zip "${1}" files
+  status=$?
+
+  if [[ "${status}" -ne 0 ]]; then
+    echo "Failed to load zip contents" >&2
+    exit 1
+  fi
+else
+  if [[ $# -gt 0 ]]; then
+    files=("$@")
+  else
+    if ! input=$(cat); then
+      echo "Error: Failed to read input" >&2
+      exit 1
+    fi
+    # Now use the captured input with mapfile
+    mapfile -t files <<<"${input}"
+  fi
+fi
+
+if [[ ${#files[@]} -eq 0 ]]; then
+  echo "No files to review. Exiting." >&2
+  exit 0
+fi
+
+# Create temp file for reviewed list
+reviewed=$(mktemp)
+trap 'rm -f "$reviewed"' EXIT
+
+# Run interactive review
+selected=$(printf '%s\n' "${files[@]}" | fzf \
+  --multi \
+  --bind "space:toggle" \
+  --bind "e:execute(code {})" \
+  --preview "bat --style=numbers --color=always --line-range=:500 {}" \
+  --header "Press SPACE to mark reviewed, 'e' to edit, ENTER to finish" \
+  --prompt="Review file: ")
+
+# Normalize selection
+selected_files=()
+if [[ -n "${selected}" ]]; then
+  while IFS= read -r line; do
+    [[ -n "${line}" ]] && selected_files+=("${line}")
+  done <<<"${selected}"
+fi
+
+create_review_report files selected_files

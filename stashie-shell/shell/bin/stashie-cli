@@ -1,0 +1,76 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# Standalone bash script converted from original get-artifact zsh function prototype
+
+# Function to display help information
+show_help() {
+  echo "Browse and save/extract artifacts from ~/Downloads, e.g. .zip, .tar.gz, codefiles downloaded from chatgpt"
+  echo "Usage: $(basename "${0}") OPTIONAL_FUZZY_SEARCH [-d|--debug] [-x|--delete]"
+  echo "Options:"
+  echo "  -d, --debug    Debug mode (show commands without executing)"
+  echo "  -x, --delete   Delete original files after processing"
+  echo "  --help         Show this help message"
+}
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
+source "${here}/../lib/stashie-core.sh"
+stashie_version_string "stashie-cli"
+
+# Parse command line arguments
+# Comment: Changed from function parameters to script arguments
+DEBUG=false
+DELETE_AFTER=false
+query=""
+
+# Parse arguments
+while [[ $# -gt 0 ]]; do
+  case "${1}" in
+  --help)
+    show_help
+    exit 0
+    ;;
+  -d | --debug)
+    DEBUG=true
+    shift
+    ;;
+  -x | --delete)
+    DELETE_AFTER=true
+    shift
+    ;;
+  *)
+    query="${1}"
+    shift
+    ;;
+  esac
+done
+
+# File picker
+# Comment: Using a simpler preview command as the original likely used a custom function
+artifact_file=$(fzf_pick_artifact "${query}")
+status=$?
+
+if [[ ${status} -eq 130 ]]; then
+  echo "Canceled by user." >&2
+  exit 130
+elif [[ ${status} -ne 0 || -z "${artifact_file}" ]]; then
+  echo "No file selected." >&2
+  exit 1
+fi
+
+# Destination folder selection
+echo "Select destination directory..." >&2
+dest=$(fzf_pick_dir "${artifact_file}")
+status=$?
+if [[ ${status} -eq 130 ]]; then
+  echo "Canceled by user." >&2
+  exit 130
+elif [[ ${status} -ne 0 ]]; then
+  echo "No destination selected." >&2
+  exit 1
+elif [[ -z "${dest}" ]]; then
+  dest="."
+fi
+
+process_artifact "${artifact_file}" "${dest}" "${DEBUG}" "${DELETE_AFTER}"

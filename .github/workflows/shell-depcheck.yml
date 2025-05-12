@@ -1,0 +1,47 @@
+name: Dependency Checks (Runtime)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-runtime-deps:
+    runs-on: macos-latest
+    strategy:
+      matrix:
+        missing: [bash, getopt, fzf]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Conditionally install runtime dependencies
+        run: |
+          case "${{ matrix.missing }}" in
+            bash)
+              brew install fzf gnu-getopt
+              ;;
+            getopt)
+              brew install fzf bash
+              ;;
+            fzf)
+              brew install bash gnu-getopt
+              ;;
+          esac
+
+          # Ensure binaries are accessible
+          brew link --overwrite --quiet fzf || true
+          brew link --overwrite --quiet gnu-getopt || true
+
+      - name: Run stashie-cli and check for missing dependency
+        run: |
+          chmod +x stashie-shell/shell/bin/stashie-cli
+          if ./stashie-shell/shell/bin/stashie-cli 2>&1 | tee output.log | grep -q "Error: ${{ matrix.missing }} is required"; then
+            echo "✅ Correctly detected missing: ${{ matrix.missing }}"
+            exit 0
+          else
+            echo "❌ Missing ${{ matrix.missing }} not detected!"
+            cat output.log
+            exit 1
+          fi

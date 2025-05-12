@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# stashie-context: Generate a zip of relevant files for ChatGPT context
+
+set -euo pipefail
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
+source "${here}/../lib/stashie-core.sh"
+stashie_version_string "stashie-context"
+
+# Default values if not set
+: "${CONTEXT_DEST_DIR:=${HOME}/Downloads}"
+DATESTAMP="$(date +%H%M 2>/dev/null || echo 0000)"
+: "${CONTEXT_FILENAME:=context-for-chat_${DATESTAMP}.zip}"
+: "${CONTEXT_FOCUS_APP:=Firefox}"
+
+dest="${CONTEXT_DEST_DIR}/${CONTEXT_FILENAME}"
+mkdir -p "${CONTEXT_DEST_DIR}"
+
+# Select file types
+files=$(find stashie-shell/shell -type f \( -name '*.sh' -o -name '*.zsh' -o -name '*.bats' \))
+
+if [[ -z "${files}" ]]; then
+  echo "⚠️ No files found to include in context."
+  exit 1
+fi
+
+zip -r "${dest}" "${files}"
+
+echo "✅ Context saved to ${dest}"
+if command -v open &>/dev/null; then
+  open -a "${CONTEXT_FOCUS_APP}"
+fi

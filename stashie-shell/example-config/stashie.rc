@@ -1,0 +1,14 @@
+# ~/.config/stashie/stashie.rc
+
+EDITOR=code
+ARTIFACT_DEST_DIR=~/projects
+ARCHIVE_MODE=old
+REVIEW_MODE=interactive+list
+
+FZF_OPTIONS="--height=40% --reverse"
+FZF_FILE_PREVIEW_CMD="bat --style=numbers --color=always --line-range=:500"
+
+# Context generation settings
+CONTEXT_DEST_DIR=~/Downloads
+CONTEXT_FILENAME="context-for-chat_$(date +%H%M).zip"
+CONTEXT_FOCUS_APP="Firefox"

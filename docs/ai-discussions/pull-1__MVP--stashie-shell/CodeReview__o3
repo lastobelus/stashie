@@ -1,0 +1,155 @@
+## Prompt: Code Review
+[code reviewer]: Please perform a code review of this pull request:
+
+https://github.com/lastobelus/stashie/pull/1
+
+This is a focused shell-based CLI tool called stashie, designed to streamline ChatGPT file handoff workflows. The tool has evolved through several iterations and now features modular shell functions, a test suite, preview commands, configuration loading, and an interactive UI built around fzf.
+
+This pull represents an MVP implementation in shell, and the plan is next to re-implement the MVP functionality iteratively in Javascript (Bun), Swift CLI, and Rust.
+
+Please approach this review with an emphasis on:
+- Code clarity and maintainability
+- Portability across macOS/Linux
+- Readability and user experience in CLI flows
+- Test coverage for core logic
+- Any overlooked edge cases or shell pitfalls
+
+If relevant, suggest best practices for shell scripting, configuration loading, installer design, or fzf interaction. Assume that the author is comfortable with Bash, fzf, and CLI UX principles, and is preparing for a future reimplementation in other languages.
+
+Respond with a structured review: overview, praise, concerns, recommendations.
+
+## Response: Code Review
+### Overview  
+The pull‑request delivers a **minimum‑viable shell implementation of _stashie_**:  
+
+* clear directory layout (`shell/bin`, `shell/lib`, `test/`, `install/`, man‑pages)  
+* modular core library (`stashie‑core.sh`) consumed by thin CLI wrappers (`stashie‑cli`, `stashie‑func`, `stashie‑context`, etc.)  
+* Bats test‑suite that covers helper functions, golden‑path flow and recently added review helpers (`get_files_from_zip`, `create_review_report`)  ([feat(stashie-shell): adds CLI version of stashie by lastobelus · Pull Request #1 · lastobelus/stashie · GitHub](https://github.com/lastobelus/stashie/pull/1/files))  
+* consistent use of `set -uo pipefail` and explicit error handling across scripts  ([feat(stashie-shell): adds CLI version of stashie by lastobelus · Pull Request #1 · lastobelus/stashie · GitHub](https://github.com/lastobelus/stashie/pull/1/files))  
+
+This is a solid baseline for handing artifacts from ChatGPT to the local filesystem with **fzf‑driven UI, zip/tar detection and configurable previews**.
+
+---
+
+### What’s great  
+
+| Area | Highlights |
+|------|------------|
+| **Code clarity** | Functions are small & composable; shared logic lives in `stashie‑core.sh`; helpers are exported for tests. |
+| **Defensive shell‑style** | `set ‑uo pipefail`, ShellCheck config, quoted expansions, and explicit trap/cancel logic follow best practice. |
+| **User‑experience** | Opinionated defaults yet many knobs (env overrides, `STASHIE_PICK_*` vars) so power‑users can tweak without patching scripts. |
+| **Portability mindset** | Wrapper `stashie‑cli` is POSIX‑ish and delegates to lib; zsh‑specific luxuries live in `stashie‑func.zsh`. |
+| **Test coverage** | Unit + integration tests exercise core flows and fzf preview helpers, giving confidence for refactors. |
+| **Forward‑looking docs** | CHANGELOG, CustomInstructions, evolution docs, and an example `stashie.rc` lower the barrier for newcomers. |
+
+---
+
+### Concerns & potential pitfalls  
+
+1. **macOS‑centric commands**  
+   * `mdls`, `open`, `zip -q` (BSD) and Homebrew‑style paths appear in helpers/installer; these will break on many Linux boxes.  
+2. **GNU/BSD tool divergence**  
+   * `tar --strip-components` and `readlink -f` behave differently across distros; scripts should detect and adapt.  
+3. **`stashie-func.zsh` vs Bash**  
+   * Some parameter‑expansion (`${var:a}` style) and associative‑array patterns are zsh‑only; ensure the path never runs under Bash or add guards.  
+4. **Error propagation**  
+   * A few helpers echo error messages but still return `0`; in pipeline mode that can hide failures.  
+5. **Edge‑case filenames**  
+   * Tests cover spaces but not new‑lines, leading dashes, or > 4 GB zip files.  
+6. **Installer side‑effects**  
+   * `install.sh` edits the user’s shell rc inline; offering a “print‑the‑snippet” option would be safer for automation.  
+7. **fzf preview**  
+   * Preview script assumes ANSI colored output; if `$TERM` lacks color support the raw control codes may leak.  
+
+---
+
+### Recommendations  
+
+| Priority | Recommendation |
+|----------|----------------|
+| **High** | Add a thin *compat* layer: helper functions `realpath_portable`, `tar_extract`, `open_file` with Darwin/Linux branches. |
+| **High** | Promote the excellent ShellCheck config to automated CI (GitHub Actions) so future language ports can keep parity. |
+| **Med** | Harden error paths: always `return 1` (or `exit 1`) after emitting an error; use `trap 'cleanup' INT TERM` around temp‑dir creation. |
+| **Med** | Extend tests:  |
+|  | • filenames with `\n`, unicode, leading `-`  |
+|  | • corrupt / password‑protected zip  |
+|  | • Linux environment run via Docker (GitHub Action matrix). |
+| **Med** | Split UI & logic early—write a CLI contract doc describing: flags, env vars, JSON API for previews. This will smooth the upcoming Bun / Swift / Rust rewrites. |
+| **Low** | Offer a Homebrew “tap” formula and a simple `curl | bash` *install‑dev.sh* that only **prints** path exports, leaving the user to paste. |
+| **Low** | Consider adding `--dry-run` and `--verbose` flags so advanced users can script stashie non‑interactively. |
+
+---
+
+### Closing thoughts  
+This MVP already feels **ergonomic and teachable**, and the modular core + robust Bats tests put you in a good position to port the same UX to Bun, Swift and Rust. Addressing the portability quirks and tightening error handling will make the shell version rock‑solid while you explore other runtimes.
+
+Great work—looking forward to the multi‑language iterations!
+
+---
+
+## Prompt: Iteration Plan
+[project manager hat]: Thank you! I have digested the review comments and put together an outline of priorities and an iteration plan for accomplished them (see attached: CodeReviewTODOS.md). I have also attached a zip of the full project with the pull request as reviewed applied, for your reference. Please review the plan in detail, offering high-level guidance for the team to begin working on the plan, identifying any areas that need clarification or discussion, and addressing whether the iteration plan is a sensible progression or if you can identify a better natural order of tasks. 
+
+## Response: Iteration Plan
+
+## High‑Level Review of **CodeReviewTODOS.md**   
+
+### What’s solid  
+* **Focus areas match the review** – CI, portability, error handling, and deeper tests are exactly the gaps called out.  
+* **Explicit compat‑layer idea** – encapsulating Darwin / Linux differences behind helper fns is the right abstraction and will pay dividends in the forthcoming Bun / Swift / Rust ports.  
+* **Iteration list is short and actionable** – seven steps is a manageable chunk for an MVP hardening cycle.  
+
+---
+
+## Guidance & Points Requiring Clarification  
+
+| Section | Questions / Observations | Suggested Next Action |
+|---------|-------------------------|-----------------------|
+| **Cleanup “no longer relevant Elixir server scaffolding”** | Which directories / files remain?  Is any of it still referenced in docs or install scripts? | Produce a quick inventory (one‑liner `git ls-files ':!:shell/*'`) and confirm deletions so CI doesn’t break doc links. |
+| **CI** | a) *“shellcheck” & “green tests”* are clear.<br> b) Steps 3 & 6 mention “Darwin/Linux env via Docker”. On GitHub Actions you already have native **macOS** runners; Linux can run directly or in Docker. Nested Docker‑on‑macOS is likely unnecessary. | • Set up a single CI matrix: `macos-latest`, `ubuntu-latest`.<br> • Add ShellCheck + Bats + a smoke run of `stashie-cli --help` in each job. |
+| **Platform Dependencies** | The list is good, but **`open`** has no real Linux analogue (users use `$BROWSER`, `xdg-open`, or `gio open`). What *behaviour* do we need? Also, `zip -q` exists on both BSD & GNU; the quiet flag is portable. | Define desired semantics in the compat layer:<br> `open_file()` → macOS `open`, Linux `xdg-open`.<br> `realpath_portable()` for `readlink -f` gaps.<br> Create a tiny RFC‑style doc so all languages can implement it identically later. |
+| **stashie‑func removal** | Confirm no one on the team relies on zsh helpers (history search etc.). If useful, move it to a distinct “experimental extras” dir rather than delete. | Decide & document in the README so future contributors aren’t surprised. |
+| **Error handling standards** | Good call‑outs, but “create a document” is vague. | Draft a **CONTRIBUTING.md → “Shell‑Coding Standards”** section: return codes, traps, logging levels. Reference it from CI (fail if `grep -nH "echo .*error" | ! grep -q "return 1"` etc.). |
+| **Tests** | Tests for embedded new‑lines & unicode filenames need sample fixtures in `test/fixtures/`. Zip ≥ 4 GB can’t be committed to git; simulate by mocking `unzip -l` output instead. | Add a **test checklist** in the iteration issue so nothing is missed. |
+
+---
+
+## Iteration‑Plan Ordering – Keep or Tweak?  
+
+| Current Step | Comment | Suggested Adjustment |
+|--------------|---------|----------------------|
+| **1 Cleanup Elixir scaffolding** | 👍 Do first – reduces CI noise. | — |
+| **2 CI setup** | ✔️ Early CI is crucial, but many portability tests require the compat layer. | **Split:**<br> 2a – add ShellCheck + existing Bats now.<br> 2b – expand matrix after compat layer (step 5). |
+| **3 Darwin Docker matrix** | See note above – use native macOS runner. | Fold into 2b. |
+| **4 Unify error handling** | Perfect next task; adds safety before heavier refactors. | Keep as step 3. |
+| **5 Discuss & scaffold compat layer** | Needs to precede Linux CI & tests. | Make this **step 4**. |
+| **6 Linux Docker matrix** | After compat layer exists. | Step 5. |
+| **7 Tests ensuring compat compliance** | Natural final hardening. | Step 6. |
+
+> **Re‑sequenced plan**  
+> 1. Remove legacy Elixir bits  
+> 2. **2a** Minimal CI (macOS + Linux, ShellCheck, existing Bats)  
+> 3. Unify error handling + doc  
+> 4. Design & implement compat layer  
+> 5. **2b** Expand CI matrix & run tests under compat layer  
+> 6. New tests (edge‑case filenames, corrupt zips, `$TERM` detection)  
+
+This front‑loads the safety net (CI + error handling), then lands the compat abstraction before asking CI to verify it.
+
+---
+
+## Kick‑off Checklist for the Team  
+
+1. **Create GitHub issues** tagged `hardening‑mvp` for each priority bullet; link them to a milestone “v0.3.0‑portable”.  
+2. **Assign roles**:  
+   * _Infra lead_ → CI matrix & ShellCheck.  
+   * _Core maintainer_ → compat layer & error‑handling refactor.  
+   * _QA_ → new fixtures + Bats additions.  
+3. **Draft “Shell‑Coding Standards”** doc (initial PR, quick review).  
+4. **Schedule a 30‑min discussion** on compat API surface (`open_file`, `realpath`, color detection) before coding.  
+5. **Freeze feature work** during hardening; only portability / tests / CI PRs merged into `main`.  
+
+---
+
+### Final Thoughts  
+The plan captures the key gaps and is only a small re‑ordering away from optimal. Tighten the CI definition, document the compat contract up front, and you’ll have a robust shell MVP ready to port to Bun, Swift, and Rust with confidence.

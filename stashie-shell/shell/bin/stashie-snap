@@ -1,0 +1,50 @@
+#!/usr/bin/env bash
+set -uo pipefail
+
+# stashie-snap
+# ------------
+# Archives either the full repo or the current subdirectory, naming the archive
+# using the project name and the most recent reachable tag. The output is saved
+# to the parent of the project root.
+
+here="$(cd "$(dirname "${BASH_SOURCE[0]}")" &>/dev/null && pwd)"
+# shellcheck source-path=SCRIPTDIR
+source "${here}/../lib/stashie-core.sh"
+stashie_version_string "stashie-snap"
+
+repo_root=$(git rev-parse --show-toplevel)
+project_name=$(basename "${repo_root}")
+tag=$(git describe --tags --abbrev=0 2>/dev/null || echo "untagged")
+cwd_abs=$(pwd)
+cwd_rel_to_root=$(git rev-parse --show-prefix | sed 's:/$::')
+sanitized_path="${cwd_rel_to_root//\//__}"
+output_base="${repo_root}/../${project_name}_${tag}"
+
+cd "${repo_root}" || exit 1
+
+if [[ "${cwd_abs}" != "${repo_root}" ]]; then
+  echo "What do you want to archive?"
+  echo "1. Full repo"
+  echo "2. Current subdirectory only: ${cwd_rel_to_root}"
+  read -rp "Choose 1 or 2: " choice
+else
+  choice="1"
+fi
+
+if [[ "${choice}" == "2" && -n "${cwd_rel_to_root}" ]]; then
+  output_path="${output_base}__${sanitized_path}.zip"
+  prefix="${project_name}/${cwd_rel_to_root}/"
+  echo "📦 Archiving subdirectory '${cwd_rel_to_root}' to: ${output_path}"
+  if git ls-tree HEAD "${cwd_rel_to_root}" | grep -q .; then
+    git archive --prefix="${prefix}" HEAD:"${cwd_rel_to_root}" -o "${output_path}"
+  else
+    echo "⚠️  No committed files found in '${cwd_rel_to_root}' — archive may be empty." >&2
+    git archive --prefix="${prefix}" HEAD:"${cwd_rel_to_root}" -o "${output_path}"
+  fi
+else
+  output_path="${output_base}.zip"
+  echo "📦 Archiving full repository to: ${output_path}"
+  git archive --prefix="${project_name}/" HEAD -o "${output_path}"
+fi
+
+echo "✅ Archive created: ${output_path}"

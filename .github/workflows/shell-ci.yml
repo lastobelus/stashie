@@ -1,0 +1,48 @@
+name: Shell CI (MVP)
+
+on:
+  push:
+    branches: ["**"]  # all branches
+    paths-ignore:
+      - "**/*.md"
+    # Only run if commit message does NOT start with 'WIP'
+    # This will be filtered at the job level (see below)
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    if: ${{ !startsWith(github.event.head_commit.message, 'WIP') }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install shellcheck bats-core bash fzf
+          brew link --overwrite fzf
+
+      - name: Install just (if missing)
+        run: |
+          if ! command -v just >/dev/null 2>&1; then
+            echo "Installing just..."
+            curl -sSL https://github.com/casey/just/releases/download/1.25.0/just-1.25.0-x86_64-apple-darwin.tar.gz \
+              | tar -xz && sudo mv just /usr/local/bin/
+          else
+            echo "just already installed"
+          fi
+      
+      - name: ShellCheck & Just syntax Check
+        run: |
+          cd stashie-shell
+          shellcheck $(find shell -name '*.sh')
+          just
+
+      - name: Run tests via Just
+        run: just tests
